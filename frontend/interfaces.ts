@@ -25,32 +25,11 @@ export interface OptionProps {
   account?: string;
   amount?: string | BigNumber;
 }
-                  
-export const transactionReceipt : ContractReceipt = {
-  blockHash: '',
-  blockNumber: 0,
-  byzantium: false,
-  confirmations: 0,
-  contractAddress: '',
-  cumulativeGasUsed: ethers.BigNumber.from(0),
-  effectiveGasPrice: ethers.BigNumber.from(0),
-  from: '',
-  gasUsed: ethers.BigNumber.from(0),
-  logs: [],
-  logsBloom: '',
-  to: '',
-  transactionHash: '',
-  transactionIndex: 0,
-  type: 0,
-  events: [],
-  root: '',
-  status: 0
-}
 
-export interface TransactionReceipt {
-  read: BigNumber | null;
-  trx: ContractReceipt | null;
-};
+export interface Result {
+  balanceOrAllowance: BigNumber;
+  data: Data;
+}
 
 export interface CardProps {
   step: string;
@@ -77,4 +56,32 @@ export interface CardProps {
 export interface SpinnerProps {
   color: string;
   rest?: React.CSSProperties
+}
+
+export interface Provider {
+  amount: BigNumber;
+  timeProvided: BigNumber;
+  position: BigNumber;
+  isExist: boolean;
+}
+
+export interface Data {
+  _totalLiquidity: BigNumber;
+  _swapfee: BigNumber;
+  _totalFeeReceived: BigNumber;
+  _totalProvider: BigNumber;
+  _provider: Provider;
+}
+
+export const data = {
+  _totalLiquidity: BigNumber(0),
+  _swapfee: BigNumber(0),
+  _totalFeeReceived: BigNumber(0),
+  _totalProvider: BigNumber(0),
+  _provider: {
+    amount: BigNumber(0),
+    timeProvided: BigNumber(0),
+    position: BigNumber(0),
+    isExist: false
+  },
 }

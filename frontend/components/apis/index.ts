@@ -1,6 +1,7 @@
 import getContractData from "./contractdata";
-import { InstanceProps, OptionProps, TransactionReceipt, transactionReceipt } from "../../interfaces";
+import { InstanceProps, OptionProps, Result, data, Data } from "../../interfaces";
 import { ethers, Contract, ContractReceipt} from "ethers";
+import BigNumber from "bignumber.js";
 
 // get contract instances
 function contractInstances(props: InstanceProps) {
@@ -20,7 +21,7 @@ function contractInstances(props: InstanceProps) {
   return { swapLab, swapLab_noSigner, token, token_noSigner }
 }
 
-async function sendTransaction(options: OptionProps) {
+async function runContractFunc(options: OptionProps) {
   const { functionName, cancelLoading, providerOrSigner, value, account, amount } = options;
   const { swapAbi, swapLabAddr, testTokenAbi, testAddr } = getContractData();
   const { 
@@ -36,60 +37,110 @@ async function sendTransaction(options: OptionProps) {
     providerOrSigner
    });
 
-  let result :TransactionReceipt = {
-    trx: null,
-    read: null
-  };
+  let result : Result = {
+    balanceOrAllowance: BigNumber(0),
+    data: data
+  }
+
+  const getData = async() : Promise<Data> => {
+    return await swapLab.getData();
+  }
+
+  const getAllowance = async(owner: string | undefined) : Promise<BigNumber> => {
+    return await token.allowance(owner, swapLabAddr);
+  }
+
+  const getBalance = async(alc:string | undefined) : Promise<BigNumber> => {
+    return await token.balanceOf(alc);
+  }
   
   switch (functionName) {
     case 'swap':
-      const txn = await swapLab.swapERC20ForCelo(testAddr);
-      await txn?.wait(2).then((rec: ContractReceipt) => {
-        result.trx = rec;
-        if(cancelLoading) cancelLoading();
+      console.log("Test addr", testAddr);
+      const txn = await swapLab.swapERC20ForCelo(testAddr, {value: value});
+      await txn?.wait(2).then(async(rec: ContractReceipt) => {
+        if(rec) {
+          result.data = await getData();
+          if(cancelLoading) cancelLoading();
+        }
       });
       break;
 
     case 'clearAllowance':
       const txn_ = await token.decreaseAllowance(swapLabAddr, amount);
-      await txn_?.wait(2).then((rec: ContractReceipt) => {
-        result.trx = rec;
-        if(cancelLoading) cancelLoading();
+      await txn_?.wait(2).then(async(rec: ContractReceipt) => {
+        if(rec) {
+          result.balanceOrAllowance = await getAllowance(account);
+          if(cancelLoading) cancelLoading();
+        }
       });
       break;
 
-    case 'deposit':
-      const txn_1 = await swapLab.deposit({value: value});
-      await txn_1?.wait(2).then((rec: ContractReceipt) => {
-        result.trx = rec;
-        if(cancelLoading) cancelLoading();
+    case 'addLiquidity':
+      const txn_1 = await swapLab.addLiquidity({value: value});
+      await txn_1?.wait(2).then(async(rec: ContractReceipt) => {
+        if(rec) {
+          result.data = await getData();
+          if(cancelLoading) cancelLoading();
+        }
+      });
+      break;
+
+    case 'removeLiquidity':
+      const txRs = await swapLab.removeLiquidity();
+      await txRs?.wait(2).then(async(rec: ContractReceipt) => {
+        if(rec) {
+          result.data = await getData();
+          if(cancelLoading) cancelLoading();
+        }
+      });
+      break;
+
+    case 'splitFee':
+      const txRs_1 = await swapLab.splitFee();
+      await txRs_1?.wait(2).then(async(rec: ContractReceipt) => {
+        if(rec) {
+          result.data = await getData();
+          if(cancelLoading) cancelLoading();
+        }
       });
       break;
 
     case 'claim':
       const txn_2 = await token.selfClaimDrop();
-      await txn_2?.wait(2).then((rec: ContractReceipt) => {
-        result.trx = rec;
-        if(cancelLoading) cancelLoading();
+      await txn_2?.wait(2).then(async(rec: ContractReceipt) => {
+        if(rec) {
+          result.balanceOrAllowance = await getBalance(account);
+          if(cancelLoading) cancelLoading();
+        }
       });
       break;
 
     case 'approve':
       const txn_3 = await token.approve(swapLabAddr, amount);
-      await txn_3?.wait(2).then((rec: ContractReceipt) => {
-        result.trx = rec;
-        if(cancelLoading) cancelLoading();
+      await txn_3?.wait(2).then(async(rec: ContractReceipt) => {
+        if(rec) {
+          result.balanceOrAllowance = await getAllowance(account);
+          if(cancelLoading) cancelLoading();
+        }
       });
       break;
 
-    default:
-      const res = await token_noSigner.balanceOf(account);
-      if(cancelLoading) cancelLoading();
-      result.read = res;
+    case 'getBalance':
+      result.balanceOrAllowance = await getBalance(account);
       break;
+
+    case 'allowance':
+      result.balanceOrAllowance = await getAllowance(account);
+      break;
+
+    default:
+      result.data = await getData();
+      break;
+
     }
       
   return result;
 }
 
-export default sendTransaction;
+export default runContractFunc;

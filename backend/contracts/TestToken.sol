@@ -15,13 +15,9 @@ contract TestToken is ERC20, Ownable{
   }
 
   function selfClaimDrop() public {
-    require(!isClaimed[msg.sender], "Already Claimed");
-    isClaimed[msg.sender]= true;
+    require(!isClaimed[msg.sender], "User already Claimed");
+    isClaimed[msg.sender] = true;
     _mint(msg.sender, dropValue);
-  }
-
-  function approve(address spender, uint256 amount) public override returns (bool) {
-    super.approve(spender, amount * (10 ** 18));
   }
 
   function specialDrop(address to) public onlyOwner {

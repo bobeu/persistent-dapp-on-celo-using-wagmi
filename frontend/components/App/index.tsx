@@ -11,11 +11,15 @@ import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { ConnectKitButton } from 'connectkit';
 import { CardComponent } from './CardComponent';
 import { Spinner } from '../Spinner';
-import sendTransaction from '../apis';
+import runContractFunc from '../apis';
 import { useAccount } from 'wagmi';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
 import { getEllipsisTxt } from '../helpers/formatters';
+import { Data, data, Result } from '../../interfaces';
+import green from '@mui/material/colors/green';
+import Web3 from "web3";
+import { hexlify } from 'ethers/lib/utils.js';
 
 const theme = createTheme();
 
@@ -26,10 +30,10 @@ export default function App() {
   const [allowance, setAllowance] = React.useState<BigNumber>(BigNumber(0));
   const [balance, setBalance] = React.useState<BigNumber>(BigNumber(0));
   const [errorMessage, setError] = React.useState<any>("");
+  const [contractData, setData] = React.useState<Data>(data);
 
   const { address, connector } = useAccount();
 
-  const setallowance = (x:BigNumber) => setAllowance(x)
   const handleValueChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     e.preventDefault();
     setValue(Number(e.target.value));
@@ -40,17 +44,55 @@ export default function App() {
     setAmount(Number(e.target.value));
   };
 
-  React.useEffect(() => {
-    if(errorMessage === 'execution reverted: Already Claimed'){
-      setTimeout(() => {
-        setError(balance)
-      }, 7000);
-    }
-  }, [errorMessage, balance]);
+  const afterTrx = (x:string, result: Result) => {
+    switch (x) {
+      case 'swap':
+        setData(result.data);
+        break;
+      case 'approve':
+        setAllowance(result.balanceOrAllowance);
+        break;
+      case 'clearAllowance':
+        setAllowance(result.balanceOrAllowance);
+        break;
+      case 'addLiquidity':
+        setData(result.data);
+        break;
+      case 'removeLiquidity':
+        setData(result.data);
+        break;
+      case 'claim':
+        setBalance(result.balanceOrAllowance);
+        break;
+      default:
+        setData(result.data);
+        break;
+    }      
+  }
 
-  const handleClick = async(functioName: string, flag?:boolean) => {
-    if(flag && functioName !== 'approve' && amount === 0) return alert('Please enter amount');
-    if(functioName === 'deposit') {
+  React.useEffect(() => {
+    const abortOp = new AbortController();
+    const getBalance = async() => {
+      var funcName = 'getBalance';
+      const provider = await connector?.getProvider();
+      if(provider) {
+        const result = await runContractFunc({
+          providerOrSigner: provider,
+          functionName: funcName,
+          account: address
+        });
+        afterTrx(funcName, result);
+      }
+    }
+
+    getBalance();
+
+    return () => abortOp.abort()
+  }, [errorMessage, address, connector])
+
+  const handleClick = async(functionName: string, flag?:boolean) => {
+    if(flag && functionName !== 'approve' && amount === 0) return alert('Please enter amount');
+    if(functionName === 'addLiquidity') {
       if(value === 0) return alert('Please set value');
     }
     setLoading(true);
@@ -58,22 +100,31 @@ export default function App() {
     
     try {
       const amt = BigNumber(amount);
-      const val = BigNumber(value);
-      await sendTransaction({
-        functionName: functioName,
+      let val = BigNumber(value);
+      if(functionName === 'swap') val = BigNumber('100000000000000000');
+      console.log("Val", val.toString())
+      const result = await runContractFunc({
+        functionName: functionName,
         providerOrSigner: provider,
         amount: ethers.utils.hexValue(ethers.utils.parseUnits(amt.toString())),
         cancelLoading: () => setLoading(false),
         account: address,
         value: ethers.utils.hexValue(ethers.utils.parseUnits(val.toString()))
-      }).then((rec) => {
-        (rec.read && functioName === 'allowance') && setallowance(rec.read);
-        (rec.read && functioName === 'balance') && setBalance(rec.read);
       });
+
+      afterTrx(functionName, result);
+   
     } catch (error: any) {
-      console.log("Error1", error?.reason);
-      setError(error?.reason);
-      setLoading(false);
+      if(error) {
+        const result = await runContractFunc({
+          functionName: 'getData',
+          providerOrSigner: provider,
+        })
+        afterTrx('getData', result);
+        setError(error?.reason || error?.data.message || error?.message);
+        setLoading(false);
+        console.log("Error1", error?.reason|| error?.message || error?.data.message);
+      }
     }
   }
 
@@ -122,60 +173,92 @@ export default function App() {
             </Stack>
           </Container>
         </Box>
-        <Container sx={{ py: 8 }} maxWidth="md">
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
+        
+        <Container sx={{ p: 2 }} maxWidth="md">
+          <Grid container spacing={4}>
+            <Grid item container xs={12} spacing={2}>
+              <Grid item xs={6} sx={{color: 'rgba(150, 150, 150, 0.7)'}}>
+                <Container sx={{ p: 2 }} maxWidth="sm">
+                  <Stack sx={{color: 'rgba(150, 150, 150, 0.7)'}}>
+                    <Typography variant='h5' component='button' mt={4} mb={4}>Contract state</Typography>
+                    <Button startIcon={'Total Liquidity'} sx={{color: green[700]}} endIcon={contractData?._totalLiquidity.toString()} variant={'text'} />
+                    <Button startIcon={'Swap Fee'} sx={{color: green[700]}} endIcon={contractData?._swapfee.toString()} variant={'text'} />
+                    <Button startIcon={'Generated fee'} sx={{color: green[700]}} endIcon={contractData?._totalFeeReceived.toString()} variant={'text'} />
+                    <Button startIcon={'Providers'} sx={{color: green[700]}} endIcon={contractData?._totalProvider.toString()} variant={'text'} />
+                  </Stack>
+                </Container> 
+              </Grid>
+
+              <Grid item xs={6} sx={{color: 'rgba(150, 150, 150, 0.7)'}}>
+                <Container sx={{ p: 2 }} maxWidth="sm">
+                  <Stack>
+                    <Typography variant='h5' component='button' mt={4} mb={4}>Provider profile</Typography>
+                    <Button startIcon={'Amount ($CELO)'} sx={{color: green[700]}} endIcon={format(contractData?._provider.amount)} variant={'text'} />
+                    <Button startIcon={'Date'} sx={{color: green[700]}} endIcon={convertFromEpoch(contractData?._provider.timeProvided)} variant={'text'} />
+                    <Button startIcon={'Position'}sx={{color: green[700]}} endIcon={contractData?._provider.position.toString()} variant={'text'} />
+                    <Button startIcon={'Exist ?'} sx={{color: green[700]}} endIcon={contractData?._provider.isExist? 'Yes' : 'No' } variant={'text'} />
+                  </Stack>
+                </Container>
+              </Grid>
+            </Grid>
+
+            <Grid item xs={12} >
+              <Container sx={{ p: 2 }} maxWidth="md" color='rgba(150, 150, 150, 0.5)'>
+                <Box 
+                  sx={{
+                    color: 'rgba(150, 150, 150, 0.5)',
+                    width: '100%',
+                    display: 'flex',
+                    justifyContent: 'space-around',
+                    alignItems: 'center'
+                  }}
+                >
+                  <Typography component={'button'} >Notification:</Typography>
+                  <Typography component={'button'} >{errorMessage}</Typography>
+                </Box>
+              </Container>
+            </Grid>
+            <Grid item xs={12} md={6}>
               <CardComponent
                 step='Step 1'
                 heading='Self Drop'
                 isButton_1_display={true}
                 isButton_2_display={true}
-                button_1_name={'Claim'}
-                button_2_name={'Get Balance'}
+                isButton_3_display={true}
+                button_1_name={'Claim SelfDrop'}
+                button_2_name={'Add Liquidity'}
+                button_3_name={'Remove Liquidity'}
                 handleButton_1_Click={() => handleClick('claim')}
-                handleButton_2_Click={() => handleClick('balance')}
+                handleButton_2_Click={() => handleClick('addLiquidity')}
+                handleButton_3_Click={() => handleClick('removeLiquidity')}
                 displayChild={loading}
-                description={`CELOG Balance: ${balance.toString() > '0'? getEllipsisTxt(balance.toString(), 4) : errorMessage}`}
+                displayTextfield={true}
+                handleTextfieldChange={handleValueChange}
+                description={`CELOG Balance: ${getEllipsisTxt(balance.toString(), 4)}`}
               >
                 <Spinner color={'white'} />
               </CardComponent>
             </Grid>
-            <Grid item xs={12} md={4}>
+          
+            <Grid item xs={12} md={6}>
               <CardComponent
                 step='Step 2'
                 heading='Set Approval'
                 isButton_1_display={true}
                 isButton_2_display={true}
                 isButton_3_display={true}
-                button_1_name={'Approve'}
-                button_2_name={'Get'}
-                button_3_name={'reduce'}
+                button_1_name={'Set Allowance'}
+                button_2_name={'Reset Allowance'}
+                button_3_name={'Swap Asset'}
                 handleButton_1_Click={() => handleClick('approve', true)}
-                handleButton_2_Click={() => handleClick('allowance')}
-                handleButton_3_Click={() => handleClick('clearAllowance')}
+                handleButton_2_Click={() => handleClick('clearAllowance')}
+                handleButton_3_Click={() => handleClick('swap')}
                 displayChild={loading}
                 displayTextfield={true}
                 handleTextfieldChange={handleAmountChange}
-                description={`Allowance: ${allowance.toString() > '0' ? getEllipsisTxt(allowance.toString(), 4) : '0.00'}`}
-              >
-                <Spinner color={'white'} />
-              </CardComponent>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <CardComponent
-                step='Step 3'
-                heading='Swap ERC20 to $CELO'
-                isButton_1_display={true}
-                isButton_2_display={true}
-                button_1_name={'Swap'}
-                button_2_name={'Deposit test Celo'}
-                handleButton_1_Click={() => handleClick('swap')}
-                handleButton_2_Click={() => handleClick('deposit')}
-                displayChild={loading}
-                description={''}
-                displayTextfield={true}
-                handleTextfieldChange={handleValueChange}
+                description={
+                  `Allowance: ${allowance.toString() > '0' ? allowance.toString() : '0.00'}`
+                }
               >
                 <Spinner color={'white'} />
               </CardComponent>
@@ -185,4 +268,11 @@ export default function App() {
       </main>
     </ThemeProvider>
   );
+}
+
+const format = (x:BigNumber) => getEllipsisTxt(x.toString(), 4);
+function convertFromEpoch(onchainUnixTime:BigNumber) {
+  const toNumber = onchainUnixTime? onchainUnixTime.toNumber() : 0;
+  var newDate = new Date(toNumber * 1000);
+  return `${newDate.toLocaleDateString("en-GB")} ${newDate.toLocaleTimeString("en-US")}`;
 }

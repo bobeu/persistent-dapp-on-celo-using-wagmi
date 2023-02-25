@@ -33,7 +33,8 @@ export const CardComponent = (props: CardProps) => {
 
   return (
     <Card sx={{ 
-        height: '100%', 
+        height: '100%',
+        width: 'fit-content',
         display: 'flex', 
         flexDirection: 'column',
         justifyContent: 'space-around', 

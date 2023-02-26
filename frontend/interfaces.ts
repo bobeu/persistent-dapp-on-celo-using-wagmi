@@ -39,6 +39,9 @@ export interface CardProps {
   description?: string;
   displayChild?: boolean;
   textFieldType?: string;
+  button_1_start?: string;
+  button_2_start?: string;
+  button_3_start?: string;
   button_1_name?: string;
   button_2_name?: string;
   button_3_name?: string;

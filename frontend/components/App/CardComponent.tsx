@@ -21,6 +21,9 @@ export const CardComponent = (props: CardProps) => {
     textFieldType, 
     button_2_name,
     button_3_name,
+    button_1_start,
+    button_2_start,
+    button_3_start,
     displayTextfield,
     isButton_1_display,
     isButton_2_display,
@@ -60,9 +63,11 @@ export const CardComponent = (props: CardProps) => {
         {displayTextfield && <TextField margin="normal" required fullWidth id="number" label={label} name={name} autoComplete="amount" type={textFieldType} autoFocus onChange={(e) => handleTextfieldChange? handleTextfieldChange(e) : null} /> }
       </CardContent>
       <CardActions>
-        { isButton_1_display && <Button variant={'contained'} sx={{
-          background: 'rgba(100, 100, 100, 0.99)',
-          color: 'whitesmoke',
+        { isButton_1_display && <Button startIcon={button_1_start} variant={'contained'} sx={{
+          background: 'rgba(100, 100, 100, 0.6)',
+          width: '100%',
+          p: 2,
+          // color: 'whitesmoke',
           '&:hover': {
             background: 'none',
             color: 'white',
@@ -70,8 +75,10 @@ export const CardComponent = (props: CardProps) => {
             transition: '0.2sec ease-in-out'
           }
         }} onClick={handleButton_1_Click} size="small">{displayChild? children : button_1_name}</Button>}
-        { isButton_2_display && <Button variant={'contained'} sx={{
+        { isButton_2_display && <Button startIcon={button_2_start} variant={'contained'} sx={{
           background: 'rgba(100, 100, 100, 0.6)',
+          width: '100%',
+          p: 2,
           '&:hover': {
             background: 'none',
             color: 'white',
@@ -79,8 +86,10 @@ export const CardComponent = (props: CardProps) => {
             transition: '0.2sec ease-in-out'
           }
         }} onClick={handleButton_2_Click} size="small">{displayChild? children : button_2_name}</Button>}
-        { isButton_3_display && <Button variant={'contained'} sx={{
+        { isButton_3_display && <Button startIcon={button_3_start} variant={'contained'} sx={{
           background: 'rgba(100, 100, 100, 0.6)',
+          width: '100%',
+          p: 2,
           '&:hover': {
             background: 'none',
             color: 'white',

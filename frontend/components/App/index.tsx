@@ -239,6 +239,8 @@ export default function App() {
                 isButton_1_display={true}
                 isButton_2_display={true}
                 isButton_3_display={true}
+                button_1_start="Step1"
+                button_2_start="Step2"
                 button_1_name={'Claim SelfDrop'}
                 button_2_name={'Add Liquidity'}
                 button_3_name={'Remove Liquidity'}
@@ -261,7 +263,9 @@ export default function App() {
                 isButton_1_display={true}
                 isButton_2_display={true}
                 isButton_3_display={true}
-                button_1_name={'Set Allowance'}
+                button_1_start='Step3'
+                button_2_start='Step4'
+                button_1_name={'Set Approval'}
                 button_2_name={'Swap Asset'}
                 button_3_name={'Split Fee - Providers'}
                 handleButton_1_Click={() => handleClick('approve', true)}

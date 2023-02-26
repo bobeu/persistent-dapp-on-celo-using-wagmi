@@ -67,7 +67,7 @@ async function runContractFunc(options: OptionProps) {
       break;
 
     case 'clearAllowance':
-      const txn_ = await token.decreaseAllowance(swapLabAddr, amount);
+      const txn_ = await token.approve(swapLabAddr, ethers.utils.hexValue(ethers.utils.parseUnits('0')));
       await txn_?.wait(2).then(async(rec: ContractReceipt) => {
         if(rec) {
           result.balanceOrAllowance = await getAllowance(account);
@@ -96,7 +96,7 @@ async function runContractFunc(options: OptionProps) {
       });
       break;
 
-    case 'splitFee':
+    case 'split':
       const txRs_1 = await swapLab.splitFee();
       await txRs_1?.wait(2).then(async(rec: ContractReceipt) => {
         if(rec) {

@@ -18,7 +18,7 @@ export interface InstanceProps {
 }
 
 export interface OptionProps {
-  value?: string;
+  value?: string | import('ethers').BigNumber;
   functionName: string;
   cancelLoading?: () => void;
   providerOrSigner?: any,

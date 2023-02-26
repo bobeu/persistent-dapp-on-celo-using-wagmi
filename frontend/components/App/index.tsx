@@ -12,31 +12,36 @@ import { ConnectKitButton } from 'connectkit';
 import { CardComponent } from './CardComponent';
 import { Spinner } from '../Spinner';
 import runContractFunc from '../apis';
-import { useAccount } from 'wagmi';
+import { useAccount, useBalance } from 'wagmi';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
 import { getEllipsisTxt } from '../helpers/formatters';
-import { Data, data, Result } from '../../interfaces';
+import { Data, data as data_1, Result } from '../../interfaces';
 import green from '@mui/material/colors/green';
-import Web3 from "web3";
-import { hexlify } from 'ethers/lib/utils.js';
+import getContractData from '../apis/contractdata';
 
 const theme = createTheme();
 
 export default function App() {
   const [loading, setLoading] = React.useState<boolean>(false);
   const [amount, setAmount] = React.useState<number>(0);
-  const [value, setValue] = React.useState<number>(0);
+  const [value, setValue] = React.useState<string>('0');
   const [allowance, setAllowance] = React.useState<BigNumber>(BigNumber(0));
-  const [balance, setBalance] = React.useState<BigNumber>(BigNumber(0));
+  const [balance, setBalance] = React.useState<any>();
   const [errorMessage, setError] = React.useState<any>("");
-  const [contractData, setData] = React.useState<Data>(data);
+  const [contractData, setData] = React.useState<Data>(data_1);
 
+  const { testAddr } = getContractData();
   const { address, connector } = useAccount();
+  const { data, isFetched, refetch } = useBalance({
+    address: address,
+    token: `0x${testAddr.replace('0x', '')}`,
+    formatUnits: 'ether'
+  })
 
   const handleValueChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     e.preventDefault();
-    setValue(Number(e.target.value));
+    setValue(e.target.value);
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
@@ -61,9 +66,6 @@ export default function App() {
       case 'removeLiquidity':
         setData(result.data);
         break;
-      case 'claim':
-        setBalance(result.balanceOrAllowance);
-        break;
       default:
         setData(result.data);
         break;
@@ -83,25 +85,29 @@ export default function App() {
         });
         afterTrx(funcName, result);
       }
+
+      const bal = isFetched ? data : await (await refetch({ exact: true })).data;
+      setBalance(bal?.formatted);
+      console.log("Bal", bal);
     }
 
     getBalance();
 
     return () => abortOp.abort()
-  }, [errorMessage, address, connector])
-
+  }, [errorMessage, address, connector, isFetched])
+  
   const handleClick = async(functionName: string, flag?:boolean) => {
     if(flag && functionName !== 'approve' && amount === 0) return alert('Please enter amount');
     if(functionName === 'addLiquidity') {
-      if(value === 0) return alert('Please set value');
+      if(value === '0') return alert('Please set value');
     }
     setLoading(true);
     const provider = await connector?.getProvider();
     
     try {
       const amt = BigNumber(amount);
-      let val = BigNumber(value);
-      if(functionName === 'swap') val = BigNumber('100000000000000000');
+      let val = ethers.utils.parseEther(value);
+      if(functionName === 'swap') val = ethers.utils.parseEther('0.1');
       console.log("Val", val.toString())
       const result = await runContractFunc({
         functionName: functionName,
@@ -109,8 +115,9 @@ export default function App() {
         amount: ethers.utils.hexValue(ethers.utils.parseUnits(amt.toString())),
         cancelLoading: () => setLoading(false),
         account: address,
-        value: ethers.utils.hexValue(ethers.utils.parseUnits(val.toString()))
+        value: val
       });
+      // value: ethers.utils.hexValue(ethers.utils.parseUnits(val.toString()))
 
       afterTrx(functionName, result);
    
@@ -175,6 +182,13 @@ export default function App() {
         </Box>
         
         <Container sx={{ p: 2 }} maxWidth="md">
+          <Typography variant='h5' component='button' color='orange' >Warning!</Typography>
+          <Box sx={{display: 'flex', justifyContent: 'space-around', }}>
+            <Typography variant='button' component='button' color='yellowgreen'>
+              This sample project is for tutorial purpose and may not be suited for production.<br/>
+              It runs on Celo Alfajores. Do not use real $Celo
+            </Typography>
+          </Box>
           <Grid container spacing={4}>
             <Grid item container xs={12} spacing={2}>
               <Grid item xs={6} sx={{color: 'rgba(150, 150, 150, 0.7)'}}>
@@ -234,7 +248,7 @@ export default function App() {
                 displayChild={loading}
                 displayTextfield={true}
                 handleTextfieldChange={handleValueChange}
-                description={`CELOG Balance: ${getEllipsisTxt(balance.toString(), 4)}`}
+                description={`Test balance: ${balance} ${data?.symbol}`}
               >
                 <Spinner color={'white'} />
               </CardComponent>
@@ -248,11 +262,11 @@ export default function App() {
                 isButton_2_display={true}
                 isButton_3_display={true}
                 button_1_name={'Set Allowance'}
-                button_2_name={'Reset Allowance'}
-                button_3_name={'Swap Asset'}
+                button_2_name={'Swap Asset'}
+                button_3_name={'Split Fee - Providers'}
                 handleButton_1_Click={() => handleClick('approve', true)}
-                handleButton_2_Click={() => handleClick('clearAllowance')}
-                handleButton_3_Click={() => handleClick('swap')}
+                handleButton_2_Click={() => handleClick('swap')}
+                handleButton_3_Click={() => handleClick('split')}
                 displayChild={loading}
                 displayTextfield={true}
                 handleTextfieldChange={handleAmountChange}
@@ -271,6 +285,7 @@ export default function App() {
 }
 
 const format = (x:BigNumber) => getEllipsisTxt(x.toString(), 4);
+
 function convertFromEpoch(onchainUnixTime:BigNumber) {
   const toNumber = onchainUnixTime? onchainUnixTime.toNumber() : 0;
   var newDate = new Date(toNumber * 1000);

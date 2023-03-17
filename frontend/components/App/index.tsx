@@ -175,7 +175,7 @@ export default function App() {
                   '&:hover': {
                     border: 'rgba(100, 100, 100, 0.5)'
                   }
-                }} href="https://github.com/bobeu/feature-rich-persistent-dapp-on-celo-using-wagmi" underline='none'>Source code</Link> 
+                }} href="https://github.com/bobeu/persistent-dapp-on-celo-using-wagmi" underline='none'>Source code</Link> 
               </Button>
             </Stack>
           </Container>
